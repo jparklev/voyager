@@ -1,74 +1,41 @@
 'use strict'
 
-const { exec } = require('child_process')
+const { cli } = require(`@nodeguy/cli`)
+const config = require(`../../config`)
 const { createHash } = require('crypto')
+const optionsSpecification = require(`./options.json`)
 const path = require('path')
 const packager = require('electron-packager')
+const shell = require(`shelljs`)
 const fs = require('fs-extra')
 var glob = require('glob')
 var JSZip = require('jszip')
 const zlib = require('zlib')
 var tar = require('tar-stream')
 var duplexer = require('duplexer')
-const packageJson = require('../package.json')
-
-let skipPack = false
-let binaryPath = null
-process.argv.forEach(function (val) {
-  if (val === '--skip-pack') {
-    console.log('Skipping packaging')
-    skipPack = true
-  }
-  if (val.startsWith('--binary')) {
-    binaryPath = val.replace('--binary=', '')
-    fs.accessSync(binaryPath)
-    console.log('Using prebuilt binary', binaryPath)
-  }
-})
-
-if (!binaryPath) {
-  console.error(`\x1b[31mPlease specify a gaia binary for this platform using the "--binary" flag
-    Example: npm run build:darwin -- --binary=./gaia
-    \x1b[0m`)
-  process.exit(1)
-}
-
-if (process.env.PLATFORM_TARGET === 'clean') {
-  require('del').sync(['builds/*', '!.gitkeep'])
-  console.log('\x1b[33m`builds` directory cleaned.\n\x1b[0m')
-} else {
-  if (skipPack) {
-    build(process.env.PLATFORM_TARGET)
-  } else {
-    pack()
-  }
-}
+const packageJson = require('../../package.json')
 
 /**
  * Build webpack in production
  */
-function pack () {
+const pack = async (options) => {
   console.log('\x1b[33mBuilding webpack in production mode...\n\x1b[0m')
-  let pack = exec('npm run pack')
-
-  pack.stdout.on('data', data => console.log(data))
-  pack.stderr.on('data', data => console.error(data))
-  pack.on('exit', code => {
-    if (code === null || code <= 0) {
-      build(process.env.PLATFORM_TARGET)
-    }
-  })
+  shell.exec('npm run pack')
+  build(options)
 }
 
 /**
  * Use electron-packager to build electron app
  */
-function build (platform) {
-  let options = require('../config').building
+function build ({ platform, gaia }) {
+  console.log('Using prebuilt binary', gaia)
 
-  options.afterCopy = [
-    copyBinary('gaia', binaryPath)
-  ]
+  let options = Object.assign({}, config.building, {
+    afterCopy: [
+      copyBinary('gaia', gaia)
+    ],
+    platform
+  })
 
   console.log('\x1b[34mBuilding electron app(s)...\n\x1b[0m')
   packager(options, async (err, appPaths) => {
@@ -84,7 +51,7 @@ function build (platform) {
           await zipFolder(appPath, options.out, packageJson.version)
         } else {
           await tarFolder(appPath, options.out, packageJson.version)
-          .catch(err => console.error(err))
+            .catch(err => console.error(err))
         }
       }))
 
@@ -124,30 +91,30 @@ function zipFolder (inDir, outDir, version) {
           return reject(err)
         }
         files
-        .forEach(file => {
+          .forEach(file => {
           // make the zip deterministic by changing all file times
-          if (fs.lstatSync(file).isDirectory()) {
-            zip.file(path.relative(inDir, file), null, {
-              dir: true,
-              date: new Date('1993-06-16')
-            })
-          } else {
-            zip.file(path.relative(inDir, file), fs.readFileSync(file), {
-              date: new Date('1987-08-16')
-            })
-          }
+            if (fs.lstatSync(file).isDirectory()) {
+              zip.file(path.relative(inDir, file), null, {
+                dir: true,
+                date: new Date('1993-06-16')
+              })
+            } else {
+              zip.file(path.relative(inDir, file), fs.readFileSync(file), {
+                date: new Date('1987-08-16')
+              })
+            }
+          })
+        resolve()
+      })
+    })
+    zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+      .pipe(fs.createWriteStream(outFile))
+      .on('finish', function () {
+        sha256File(outFile).then((hash) => {
+          console.log('Zip successful!', outFile, 'SHA256:', hash)
+          resolve()
         })
-        resolve()
       })
-    })
-    zip.generateNodeStream({type: 'nodebuffer', streamFiles: true})
-    .pipe(fs.createWriteStream(outFile))
-    .on('finish', function () {
-      sha256File(outFile).then((hash) => {
-        console.log('Zip successful!', outFile, 'SHA256:', hash)
-        resolve()
-      })
-    })
   })
 }
 
@@ -190,17 +157,17 @@ async function tarFolder (inDir, outDir, version) {
   // make tar deterministic
   await new Promise((resolve) => {
     pack
-    .pipe(deterministicTar())
-    // save tar to disc
-    .pipe(zlib.createGzip())
-    .pipe(fs.createWriteStream(outFile))
-    .on('finish', function () {
-      console.log('write finished')
-      sha256File(outFile).then((hash) => {
-        console.log('Zip successful!', outFile, 'SHA256:', hash)
-        resolve()
+      .pipe(deterministicTar())
+      // save tar to disc
+      .pipe(zlib.createGzip())
+      .pipe(fs.createWriteStream(outFile))
+      .on('finish', function () {
+        console.log('write finished')
+        sha256File(outFile).then((hash) => {
+          console.log('Zip successful!', outFile, 'SHA256:', hash)
+          resolve()
+        })
       })
-    })
   })
 }
 
@@ -230,3 +197,21 @@ function deterministicTar () {
 
   return duplexer(extract, pack)
 }
+
+cli(optionsSpecification, async options => {
+  const { platform, 'skip-pack': skipPack } = options
+
+  if (platform === 'clean') {
+    require('del').sync(['builds/*', '!.gitkeep'])
+    console.log('\x1b[33m`builds` directory cleaned.\n\x1b[0m')
+  } else {
+    console.log(`Building for platform "${platform}".`)
+
+    if (skipPack) {
+      console.log('Skipping packaging')
+      build(options)
+    } else {
+      await pack(options)
+    }
+  }
+})
