@@ -5,9 +5,9 @@ data-msg(icon="rotate_right" spin="true")
 </template>
 
 <script>
-import DataMsg from 'common/NiDataMsg'
+import DataMsg from "common/NiDataMsg"
 export default {
-  name: 'ni-data-loading',
+  name: "ni-data-loading",
   components: { DataMsg }
 }
 </script>

@@ -10,14 +10,14 @@ page(title="My Profile")
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
-import Btn from '@nylira/vue-button'
-import ListItem from 'common/NiListItem'
-import ToolBar from 'common/NiToolBar'
-import Page from 'common/NiPage'
-import Part from 'common/NiPart'
+import { mapGetters } from "vuex"
+import Btn from "@nylira/vue-button"
+import ListItem from "common/NiListItem"
+import ToolBar from "common/NiToolBar"
+import Page from "common/NiPage"
+import Part from "common/NiPart"
 export default {
-  name: 'page-profile',
+  name: "page-profile",
   components: {
     Btn,
     ListItem,
@@ -25,11 +25,11 @@ export default {
     Part,
     ToolBar
   },
-  computed: { ...mapGetters(['user']) },
+  computed: { ...mapGetters(["user"]) },
   methods: {
-    signOut () {
-      this.$store.dispatch('signOut')
-      this.$store.commit('notifySignOut')
+    signOut() {
+      this.$store.dispatch("signOut")
+      this.$store.commit("notifySignOut")
     }
   }
 }

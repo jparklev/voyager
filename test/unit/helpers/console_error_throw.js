@@ -1,5 +1,5 @@
 if (!process.env.LISTENING_TO_UNHANDLED_REJECTION) {
-  process.on('unhandledRejection', reason => {
+  process.on("unhandledRejection", reason => {
     throw reason
   })
   // Avoid memory leak by adding too many listeners
@@ -7,9 +7,9 @@ if (!process.env.LISTENING_TO_UNHANDLED_REJECTION) {
 }
 
 console.error = (...args) => {
-  throw Error(args.join(' '))
+  throw Error(args.join(" "))
 }
 
 console.warn = (...args) => {
-  throw Error(args.join(' '))
+  throw Error(args.join(" "))
 }

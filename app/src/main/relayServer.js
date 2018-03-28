@@ -1,7 +1,12 @@
-let express = require('express')
-let proxy = require('express-http-proxy')
+let express = require("express")
+let proxy = require("express-http-proxy")
 
-module.exports = function ({ relayServerPort, lcdPort, onReconnectReq, onSuccesfulStart } = {}) {
+module.exports = function({
+  relayServerPort,
+  lcdPort,
+  onReconnectReq,
+  onSuccesfulStart
+} = {}) {
   let app = express()
 
   // TODO this lets the server timeout until there is an external request
@@ -11,20 +16,20 @@ module.exports = function ({ relayServerPort, lcdPort, onReconnectReq, onSuccesf
   //   next()
   // })
 
-  app.get('/reconnect', async (req, res) => {
-    console.log('requesting to reconnect')
+  app.get("/reconnect", async (req, res) => {
+    console.log("requesting to reconnect")
     let nodeIP = await onReconnectReq()
-    console.log('reconnected to', nodeIP)
+    console.log("reconnected to", nodeIP)
     res.send(nodeIP)
   })
 
-  app.get('/startsuccess', async (req, res) => {
+  app.get("/startsuccess", async (req, res) => {
     onSuccesfulStart()
     res.sendStatus(200)
   })
 
   // proxy everything else to light client
-  app.use(proxy('http://localhost:' + lcdPort))
+  app.use(proxy("http://localhost:" + lcdPort))
 
   app.listen(relayServerPort)
 }
