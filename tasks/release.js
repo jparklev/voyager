@@ -1,6 +1,7 @@
 'use strict'
 
 const { exec } = require('child_process')
+const config = require('config')
 const { createHash } = require('crypto')
 const path = require('path')
 const packager = require('electron-packager')
@@ -63,8 +64,14 @@ function pack () {
 /**
  * Use electron-packager to build electron app
  */
-function build (platform) {
-  let options = require('../config').building
+function build(platform) {
+  const { building } = config
+
+  let options = Object.assign(
+    building,
+    ...[`dir`, `icon`, `out`]
+      .map(pathname => ({ [pathname]: path.join(__dirname, `../`, building[pathname]) }))
+  )
 
   options.afterCopy = [
     copyBinary('gaia', binaryPath)
